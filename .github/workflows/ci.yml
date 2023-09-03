@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-on-esp-idf-v5_0_2:
+    name: Build on ESP-IDF v5.0.2
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.0.2
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Prepare
+        run: apt-get update && apt-get -y install cppcheck
+      - name: UnitTest
+        run: |
+          echo "Hello" || true
+      - name: Build
+        run: |
+          . $IDF_PATH/export.sh
+          idf.py set-target esp32s3
+          idf.py build
+      - name: Static Analysis
+        run: |
+          $IDF_PATH/tools/idf_tools.py install xtensa-clang
+          . $IDF_PATH/export.sh
+          pip3 install codechecker
+          sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
+          sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
+          sed -i 's/-std=gnu17//g' build/compile_commands.json
+          CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
+          CodeChecker parse reports > $HOME/codechecker_output.txt
+          sed -i '1s/^/```\n/' $HOME/codechecker_output.txt
+          echo "\n\`\`\`" >> $HOME/codechecker_output.txt
+      - name: Comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const os = require('os');
+            const fs = require('fs');
+            const filepath = os.homedir() + '/' + 'codechecker_output.txt';
+            const body = fs.readFileSync(filepath, "utf-8");
+            github.rest.issues.createComment({
+              issue_number: ${{ github.event.number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            })
