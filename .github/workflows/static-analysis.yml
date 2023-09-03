@@ -1,0 +1,44 @@
+name: Static analysis
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.0.2
+    steps:
+      - name: Prepare
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: build.yml
+          name: build_result-${{ github.sha }}
+          path: build
+      - name: Analysis
+        run: |
+          pwd
+          ls
+          $IDF_PATH/tools/idf_tools.py install xtensa-clang
+          . $IDF_PATH/export.sh
+          pip3 install codechecker
+          sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
+          sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
+          CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
+      - name: Cleanup
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.actions.deleteArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: build_result-${{ github.sha }},
+            })
