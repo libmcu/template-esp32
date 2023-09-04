@@ -3,7 +3,6 @@ name: Static analysis
 on:
   workflow_run:
     workflows: ["Build"]
-    branches: [main]
     types: [completed]
 
 jobs:
@@ -32,6 +31,18 @@ jobs:
           sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
           sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
           CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
+          echo "REPORT_TEXT=$(CodeChecker parse reports)" >> $GITHUB_OUTPUT
+        id: analysis
+      - name: Comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: ${{ steps.analysis.outputs.REPORT_TEXT }}
+            })
       - name: Cleanup
         if: always()
         uses: actions/github-script@v6
