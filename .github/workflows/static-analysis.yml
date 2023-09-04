@@ -24,8 +24,6 @@ jobs:
           path: build
       - name: Analysis
         run: |
-          pwd
-          ls
           $IDF_PATH/tools/idf_tools.py install xtensa-clang
           . $IDF_PATH/export.sh
           pip3 install codechecker
