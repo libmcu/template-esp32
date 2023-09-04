@@ -31,9 +31,11 @@ jobs:
           sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
           sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
           CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
-          echo "REPORT_TEXT=$(CodeChecker parse reports)" >> $GITHUB_OUTPUT
+          CodeChecker parse reports > codechecker.output
+          echo "REPORT_TEXT=$(cat codechecker.output)" >> $GITHUB_OUTPUT
         id: analysis
       - name: Comment
+        if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v6
         with:
           script: |
