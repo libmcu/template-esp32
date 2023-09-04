@@ -49,8 +49,17 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            github.rest.actions.deleteArtifact({
+            const res = await github.actions.listArtifactsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              artifact_id: build_result-${{ github.sha }},
             })
+
+            res.data.artifacts
+              .filter(({ name }) => name === 'build_result-${{ github.sha }}')
+              .forEach(({ id }) => {
+                github.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: id,
+                })
+              })
