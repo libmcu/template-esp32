@@ -23,6 +23,7 @@ jobs:
           name: build_result-${{ github.sha }}
           path: build
       - name: Analysis
+        id: analysis
         continue-on-error: true
         run: |
           $IDF_PATH/tools/idf_tools.py install xtensa-clang
@@ -33,7 +34,6 @@ jobs:
           CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
           CodeChecker parse reports > codechecker.output
           echo "REPORT_TEXT=$(cat codechecker.output)" >> $GITHUB_OUTPUT
-        id: analysis
       - name: Comment
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v6
