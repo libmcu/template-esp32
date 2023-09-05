@@ -22,8 +22,18 @@ jobs:
           . $IDF_PATH/export.sh
           idf.py set-target esp32s3
           idf.py build
+      - name: Save Workflow Context
+        id: workflow_context
+        env:
+          ISSUE_NUMBER: ${{ github.event.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          BUILD_RESULT: build_result-${{ github.sha }}
+        run: |
+          echo $BUILD_RESULT > ./build/build_result_artifacts
+          echo $ISSUE_NUMBER > ./build/issue_number
+          echo $EVENT_NAME > ./build/event_name
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: build_result-${{ github.sha }}
+          name: ${{ steps.workflow_context.outputs.BUILD_RESULT }}
           path: build

@@ -16,12 +16,36 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: Recognize SHA
+        id: sharef
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" == 'pull_request' ]
+          then
+            echo "SHA_REF=$(echo ${{ github.event.pull_request.head.sha }})" >> $GITHUB_OUTPUT
+          elif [ "$EVENT" == 'workflow_run' ]
+          then
+            echo "SHA_REF=$(echo ${{ github.event.workflow_run.head_sha }})" >> $GITHUB_OUTPUT
+          else
+            echo "SHA_REF=$(echo ${{ github.sha }})" >> $GITHUB_OUTPUT
+          fi
       - name: Download artifact
         uses: dawidd6/action-download-artifact@v2
         with:
           workflow: build.yml
-          name: build_result-${{ github.sha }}
+          name: build_result-${{ steps.sharef.outputs.SHAREF }}
           path: build
+      - name: Set Workflow Context
+        id: workflow_context
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const issue_number = Number(fs.readFileSync('./build/issue_number'));
+            const event_name = Number(fs.readFileSync('./build/event_name'));
+            echo "ISSUE_NUMBER=$(cat build/issue_number)" >> $GITHUB_OUTPUT
+            echo "EVENT_NAME=$(cat build/event_name)" >> $GITHUB_OUTPUT
       - name: Analysis
         id: analysis
         continue-on-error: true
@@ -35,12 +59,12 @@ jobs:
           CodeChecker parse reports > codechecker.output
           echo "REPORT_TEXT=$(cat codechecker.output)" >> $GITHUB_OUTPUT
       - name: Comment
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ steps.workflow_context.outputs.EVENT_NAME == 'pull_request' }}
         uses: actions/github-script@v6
         with:
           script: |
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: ${{ steps.workflow_context.outputs.ISSUE_NUMBER }},
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: ${{ steps.analysis.outputs.REPORT_TEXT }}
@@ -50,13 +74,14 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const res = await github.rest.actions.listArtifactsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            })
+            const res = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: context.payload.workflow_run.id,
+            });
 
             res.data.artifacts
-              .filter(({ name }) => name === 'build_result-${{ github.sha }}')
+              .filter(({ name }) => name === 'build_result-${{ steps.sharef.outputs.SHAREF }}')
               .forEach(({ id }) => {
                 github.rest.actions.deleteArtifact({
                   owner: context.repo.owner,
