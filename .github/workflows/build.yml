@@ -35,5 +35,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ steps.workflow_context.outputs.BUILD_RESULT }}
+          name: build_result-${{ github.sha }}
           path: build
