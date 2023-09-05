@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-with-esp-idf:
+    name: Build with ESP-IDF
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.0.2
+    steps:
+      - name: Clone
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Build
+        run: |
+          . $IDF_PATH/export.sh
+          idf.py set-target esp32s3
+          idf.py build
+      - name: Analysis
+        id: analysis
+        continue-on-error: true
+        run: |
+          $IDF_PATH/tools/idf_tools.py install xtensa-clang
+          . $IDF_PATH/export.sh
+          pip3 install codechecker
+          sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
+          sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
+          CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
+          CodeChecker parse reports > codechecker.output
+          echo "REPORT_TEXT=$(cat codechecker.output)" >> $GITHUB_OUTPUT
+      - name: Comment
+        if: ${{ steps.workflow_context.outputs.EVENT_NAME == 'pull_request' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: Number(${{ steps.workflow_context.outputs.ISSUE_NUMBER }}),
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: ${{ steps.analysis.outputs.REPORT_TEXT }}
+            })
