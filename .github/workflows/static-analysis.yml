@@ -19,6 +19,9 @@ jobs:
       - name: Recognize SHA
         id: sharef
         run: |
+          echo ${{ github.event_name }}
+          echo ${{ github.event.pull_request.head.sha }}
+
           if [ ${{ github.event_name }} == 'pull_request' ]
           then
             echo "SHA_REF=$(echo ${{ github.event.pull_request.head.sha }})" >> $GITHUB_OUTPUT
