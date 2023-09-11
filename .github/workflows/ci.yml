@@ -17,13 +17,15 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: UnitTest
+        run: |
+          echo "Hello" || true
       - name: Build
         run: |
           . $IDF_PATH/export.sh
           idf.py set-target esp32s3
           idf.py build
-      - name: Analysis
-        id: analysis
+      - name: Static Analysis
         continue-on-error: true
         run: |
           $IDF_PATH/tools/idf_tools.py install xtensa-clang
@@ -32,16 +34,22 @@ jobs:
           sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
           sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
           CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
-          CodeChecker parse reports > codechecker.output
-          echo "REPORT_TEXT=$(cat codechecker.output)" >> $GITHUB_OUTPUT
+          CodeChecker parse reports > $HOME/codechecker_output.txt
+      - run: |
+          sed -i '1s/^/```\n/' $HOME/codechecker_output.txt
+          echo "\n\`\`\`" >> $HOME/codechecker_output.txt
       - name: Comment
-        if: ${{ steps.workflow_context.outputs.EVENT_NAME == 'pull_request' }}
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           script: |
+            const os = require('os');
+            const fs = require('fs');
+            const filepath = os.homedir() + '/' + 'codechecker_output.txt';
+            const body = fs.readFileSync(filepath, "utf-8");
             github.rest.issues.createComment({
-              issue_number: Number(${{ steps.workflow_context.outputs.ISSUE_NUMBER }}),
+              issue_number: ${{ github.event.number }},
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: ${{ steps.analysis.outputs.REPORT_TEXT }}
+              body: body
             })
