@@ -18,7 +18,15 @@ jobs:
         with:
           submodules: recursive
       - name: Prepare
-        run: apt-get update && apt-get -y install cppcheck
+        run: |
+          apt-get update && apt-get -y install cppcheck
+          git config --system --add safe.directory '*'
+          echo "CODECHECKER_RESULT=$(echo .github/codechecker_result.txt)" >> \
+            $GITHUB_ENV
+          echo "CODECHECKER_BASE=$(echo .github/codechecker.baseline)" >> \
+            $GITHUB_ENV
+          echo "CODECHECKER_BASE_TMP=$(echo .github/tmp.baseline)" >> \
+            $GITHUB_ENV
       - name: UnitTest
         run: |
           echo "Hello" || true
@@ -35,18 +43,26 @@ jobs:
           sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
           sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
           sed -i 's/-std=gnu17//g' build/compile_commands.json
-          CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
-          CodeChecker parse reports > $HOME/codechecker_output.txt
-          sed -i '1s/^/```\n/' $HOME/codechecker_output.txt
-          echo "\n\`\`\`" >> $HOME/codechecker_output.txt
+          CodeChecker analyze ./build/compile_commands.json --enable sensitive \
+            --output ./reports --ignore .codechecker.exclude
+          git checkout main $CODECHECKER_BASE || true
+          CodeChecker parse ./reports -e baseline -o $CODECHECKER_BASE_TMP || true
+          CodeChecker cmd diff -b $CODECHECKER_BASE \
+            -n ./reports --new > $CODECHECKER_RESULT ||
+            CodeChecker parse reports > $CODECHECKER_RESULT
+      - name: Process Analysis Result
+        if: always()
+        run: |
+          sed -i '1s/^/```\n/' $CODECHECKER_RESULT
+          echo "\n\`\`\`" >> $CODECHECKER_RESULT
+          cp $CODECHECKER_BASE_TMP $CODECHECKER_BASE
       - name: Comment
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           script: |
-            const os = require('os');
-            const fs = require('fs');
-            const filepath = os.homedir() + '/' + 'codechecker_output.txt';
+            const fs = require("fs");
+            const filepath = "${{ env.CODECHECKER_RESULT }}";
             const body = fs.readFileSync(filepath, "utf-8");
             github.rest.issues.createComment({
               issue_number: ${{ github.event.number }},
@@ -54,3 +70,10 @@ jobs:
               repo: context.repo.repo,
               body: body
             })
+      - name: Store codechecker baseline
+        if: always()
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: ${{ env.CODECHECKER_BASE }}
+          default_author: github_actions
+          push: origin HEAD:${{ github.head_ref }} --force
