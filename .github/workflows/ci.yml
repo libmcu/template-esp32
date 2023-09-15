@@ -7,6 +7,9 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  codechecker_result_filename: 'codechecker.result'
+  codechecker_base_filename: 'codechecker.baseline'
 jobs:
   build-on-esp-idf-v5_0_2:
     name: Build on ESP-IDF v5.0.2
@@ -35,10 +38,14 @@ jobs:
           sed -i 's/-fno-tree-switch-conversion//g' build/compile_commands.json
           sed -i 's/-fstrict-volatile-bitfields//g' build/compile_commands.json
           sed -i 's/-std=gnu17//g' build/compile_commands.json
-          CodeChecker analyze ./build/compile_commands.json --enable sensitive --output ./reports --ignore .codechecker.exclude
-          CodeChecker parse reports > $HOME/codechecker_output.txt
-          sed -i '1s/^/```\n/' $HOME/codechecker_output.txt
-          echo "\n\`\`\`" >> $HOME/codechecker_output.txt
+          CodeChecker analyze ./build/compile_commands.json --enable sensitive \
+            --output ./reports --ignore .codechecker.exclude
+          git checkout main .github/${{ env.codechecker_base_filename }} || \
+            CodeChecker parse ./reports -e baseline -o .github/${{ env.codechecker_base_filename }}
+          CodeChecker cmd diff -b .github/${{ env.codechecker_base_filename }} \
+            -n ./reports --new -o $HOME/${{ env.codechecker_result_filename }}
+          sed -i '1s/^/```\n/' $HOME/${{ env.codechecker_result_filename }}
+          echo "\n\`\`\`" >> $HOME/${{ env.codechecker_result_filename }}
       - name: Comment
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v6
@@ -46,7 +53,7 @@ jobs:
           script: |
             const os = require('os');
             const fs = require('fs');
-            const filepath = os.homedir() + '/' + 'codechecker_output.txt';
+            const filepath = os.homedir() + '/' + ${{ env.codechecker_result_filename }};
             const body = fs.readFileSync(filepath, "utf-8");
             github.rest.issues.createComment({
               issue_number: ${{ github.event.number }},
@@ -54,3 +61,9 @@ jobs:
               repo: context.repo.repo,
               body: body
             })
+      - name: Commit & Push changes
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions-js/push@v1.1
+        with:
+          directory: .github/${{ env.codechecker_base_filename }}
+          rebase: true
