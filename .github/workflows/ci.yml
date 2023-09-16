@@ -27,6 +27,8 @@ jobs:
             $GITHUB_ENV
           echo "CODECHECKER_BASE_TMP=$(echo .github/tmp.baseline)" >> \
             $GITHUB_ENV
+          echo "MEMSEG_BASE=$(echo .github/memseg.baseline)" >> \
+            $GITHUB_ENV
       - name: UnitTest
         run: |
           echo "Hello" || true
@@ -35,6 +37,9 @@ jobs:
           . $IDF_PATH/export.sh
           idf.py set-target esp32s3
           idf.py build
+      - name: Process Memory Usage
+        run: |
+          idf.py size | sed -n '/^Total sizes:$/,$p' > $MEMSEG_BASE
       - name: Static Analysis
         run: |
           $IDF_PATH/tools/idf_tools.py install xtensa-clang
@@ -74,6 +79,6 @@ jobs:
         if: always()
         uses: EndBug/add-and-commit@v9
         with:
-          add: ${{ env.CODECHECKER_BASE }}
+          add: '[${{ env.CODECHECKER_BASE }}, ${{ env.MEMSEG_BASE }}]'
           default_author: github_actions
           push: origin HEAD:${{ github.head_ref }} --force
