@@ -7,9 +7,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-env:
-  codechecker_result_filename: 'codechecker.result'
-  codechecker_base_filename: 'codechecker.baseline'
 jobs:
   build-on-esp-idf-v5_0_2:
     name: Build on ESP-IDF v5.0.2
@@ -21,7 +18,15 @@ jobs:
         with:
           submodules: recursive
       - name: Prepare
-        run: apt-get update && apt-get -y install cppcheck
+        run: |
+          apt-get update && apt-get -y install cppcheck
+          git config --system --add safe.directory '*'
+          echo "CODECHECKER_RESULT=$(echo .github/codechecker_result.txt)" >> \
+            $GITHUB_ENV
+          echo "CODECHECKER_BASE=$(echo .github/codechecker.baseline)" >> \
+            $GITHUB_ENV
+          echo "CODECHECKER_BASE_TMP=$(echo .github/tmp.baseline)" >> \
+            $GITHUB_ENV
       - name: UnitTest
         run: |
           echo "Hello" || true
@@ -40,19 +45,24 @@ jobs:
           sed -i 's/-std=gnu17//g' build/compile_commands.json
           CodeChecker analyze ./build/compile_commands.json --enable sensitive \
             --output ./reports --ignore .codechecker.exclude
-          git checkout main .github/${{ env.codechecker_base_filename }} || \
-            CodeChecker parse ./reports -e baseline -o .github/${{ env.codechecker_base_filename }}
-          CodeChecker cmd diff -b .github/${{ env.codechecker_base_filename }} \
-            -n ./reports --new -o $HOME/${{ env.codechecker_result_filename }}
-          sed -i '1s/^/```\n/' $HOME/${{ env.codechecker_result_filename }}
-          echo "\n\`\`\`" >> $HOME/${{ env.codechecker_result_filename }}
+          git checkout main $CODECHECKER_BASE || true
+          CodeChecker parse ./reports -e baseline -o $CODECHECKER_BASE_TMP || true
+          CodeChecker cmd diff -b $CODECHECKER_BASE \
+            -n ./reports --new > $CODECHECKER_RESULT ||
+            CodeChecker parse reports > $CODECHECKER_RESULT
+      - name: Process Analysis Result
+        if: always()
+        run: |
+          sed -i '1s/^/```\n/' $CODECHECKER_RESULT
+          echo "\n\`\`\`" >> $CODECHECKER_RESULT
+          cp $CODECHECKER_BASE_TMP $CODECHECKER_BASE
       - name: Comment
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           script: |
-            const fs = require('fs');
-            const filepath = process.env.HOME + '/' + 'codechecker.result';
+            const fs = require("fs");
+            const filepath = "${{ env.CODECHECKER_RESULT }}";
             const body = fs.readFileSync(filepath, "utf-8");
             github.rest.issues.createComment({
               issue_number: ${{ github.event.number }},
@@ -60,13 +70,10 @@ jobs:
               repo: context.repo.repo,
               body: body
             })
-      - name: Mark github workspace as safe
-        if: always()
-        run: git config --system --add safe.directory '*'
       - name: Store codechecker baseline
         if: always()
         uses: EndBug/add-and-commit@v9
         with:
-          add: .github/${{ env.codechecker_base_filename }}
+          add: ${{ env.CODECHECKER_BASE }}
           default_author: github_actions
           push: origin HEAD:${{ github.head_ref }} --force
