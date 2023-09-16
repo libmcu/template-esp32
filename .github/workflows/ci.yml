@@ -21,14 +21,12 @@ jobs:
         run: |
           apt-get update && apt-get -y install cppcheck
           git config --system --add safe.directory '*'
-          echo "CODECHECKER_RESULT=$(echo .github/codechecker_result.txt)" >> \
-            $GITHUB_ENV
-          echo "CODECHECKER_BASE=$(echo .github/codechecker.baseline)" >> \
-            $GITHUB_ENV
-          echo "CODECHECKER_BASE_TMP=$(echo .github/tmp.baseline)" >> \
-            $GITHUB_ENV
-          echo "MEMSEG_BASE=$(echo .github/memseg.baseline)" >> \
-            $GITHUB_ENV
+          echo "CODECHECKER_RESULT=$(echo .github/codechecker_result.txt)" >> $GITHUB_ENV
+          echo "CODECHECKER_BASE=$(echo .github/codechecker.baseline)" >> $GITHUB_ENV
+          echo "CODECHECKER_BASE_TMP=$(echo .github/codechecker_tmp.baseline)" >> $GITHUB_ENV
+          echo "MEMSEG_RESULT=$(echo .github/memsize.txt)" >> $GITHUB_ENV
+          echo "MEMSEG_BASE=$(echo .github/memsize.baseline)" >> $GITHUB_ENV
+          echo "MEMSEG_BASE_TMP=$(echo .github/memsize_tmp.baseline)" >> $GITHUB_ENV
       - name: UnitTest
         run: |
           echo "Hello" || true
@@ -38,9 +36,39 @@ jobs:
           idf.py set-target esp32s3
           idf.py build
       - name: Process Memory Usage
+        continue-on-error: true
         run: |
-          idf.py size | sed -n '/^Total sizes:$/,$p' > $MEMSEG_BASE
+          git checkout main $MEMSEG_BASE || cp $MEMSEG_BASE.template $MEMSEG_BASE
+          . $IDF_PATH/export.sh
+          xtensa-esp32s3-elf-size build/*.elf > $MEMSEG_BASE_TMP
+          echo -n "\`\`\`\n        " > $MEMSEG_RESULT
+          cat $MEMSEG_BASE_TMP | sed -n 1p >> $MEMSEG_RESULT
+          echo -n "current " >> $MEMSEG_RESULT
+          cat $MEMSEG_BASE_TMP | sed -n 2p >> $MEMSEG_RESULT
+          echo -n "base    " >> $MEMSEG_RESULT
+          cat $MEMSEG_BASE | sed -n 2p >> $MEMSEG_RESULT
+          echo -n "diff    " >> $MEMSEG_RESULT
+          paste $MEMSEG_BASE $MEMSEG_BASE_TMP | \
+            sed -n 2p | \
+            awk '{printf "%7d %7d %7d", $7-$1, $8-$2, $9-$3}' >> $MEMSEG_RESULT
+          echo "\n\`\`\`" >> $MEMSEG_RESULT
+          cp $MEMSEG_BASE_TMP $MEMSEG_BASE
+      - name: Comment Memory Size
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require("fs");
+            const filepath = "${{ env.MEMSEG_RESULT }}";
+            const body = fs.readFileSync(filepath, "utf-8");
+            github.rest.issues.createComment({
+              issue_number: ${{ github.event.number }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            })
       - name: Static Analysis
+        id: analysis
         run: |
           $IDF_PATH/tools/idf_tools.py install xtensa-clang
           . $IDF_PATH/export.sh
@@ -61,8 +89,8 @@ jobs:
           sed -i '1s/^/```\n/' $CODECHECKER_RESULT
           echo "\n\`\`\`" >> $CODECHECKER_RESULT
           cp $CODECHECKER_BASE_TMP $CODECHECKER_BASE
-      - name: Comment
-        if: always() && github.event_name == 'pull_request'
+      - name: Comment Static Analysis Result
+        if: always() && github.event_name == 'pull_request' && steps.analysis.outcome != 'success'
         uses: actions/github-script@v6
         with:
           script: |

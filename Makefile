@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-PROJECT := $(BOARD)
+PROJECT := template
 BASEDIR := $(shell pwd)
 BUILDIR := build
 
@@ -33,7 +33,7 @@ help:
 version:
 	$(info $(VERSION_TAG), $(VERSION))
 
-## test
+## test: run unit testing
 .PHONY: test
 test:
 	$(Q)$(MAKE) -C tests
@@ -43,6 +43,11 @@ test:
 clean: confirm
 	$(Q)rm -fr $(BUILDIR)
 	$(Q)$(MAKE) -C tests $@
+
+## size: print memory segment size
+.PHONY: size
+size:
+	$(Q)xtensa-esp32s3-elf-size $(BUILDIR)/$(PROJECT).elf
 
 .PHONY: flash
 flash: $(BUILDIR)/esp32s3.bin
