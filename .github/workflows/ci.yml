@@ -51,9 +51,8 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const os = require('os');
             const fs = require('fs');
-            const filepath = os.homedir() + '/' + ${{ env.codechecker_result_filename }};
+            const filepath = process.env.HOME + '/' + 'codechecker.result';
             const body = fs.readFileSync(filepath, "utf-8");
             github.rest.issues.createComment({
               issue_number: ${{ github.event.number }},
@@ -61,9 +60,13 @@ jobs:
               repo: context.repo.repo,
               body: body
             })
-      - name: Commit & Push changes
-        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions-js/push@v1.1
+      - name: Mark github workspace as safe
+        if: always()
+        run: git config --system --add safe.directory '*'
+      - name: Store codechecker baseline
+        if: always()
+        uses: EndBug/add-and-commit@v9
         with:
-          directory: .github/${{ env.codechecker_base_filename }}
-          rebase: true
+          add: .github/${{ env.codechecker_base_filename }}
+          default_author: github_actions
+          push: origin HEAD:${{ github.head_ref }} --force
