@@ -21,6 +21,7 @@ jobs:
         run: |
           apt-get update && apt-get -y install cppcheck
           git config --system --add safe.directory '*'
+          git fetch
           echo "CODECHECKER_RESULT=$(echo .github/codechecker_result.txt)" >> $GITHUB_ENV
           echo "CODECHECKER_BASE=$(echo .github/codechecker.baseline)" >> $GITHUB_ENV
           echo "CODECHECKER_BASE_TMP=$(echo .github/codechecker_tmp.baseline)" >> $GITHUB_ENV
@@ -38,7 +39,7 @@ jobs:
       - name: Process Memory Usage
         continue-on-error: true
         run: |
-          git checkout main $MEMSEG_BASE || cp $MEMSEG_BASE.template $MEMSEG_BASE
+          git checkout origin/main $MEMSEG_BASE || cp $MEMSEG_BASE.template $MEMSEG_BASE
           . $IDF_PATH/export.sh
           xtensa-esp32s3-elf-size build/*.elf > $MEMSEG_BASE_TMP
           echo -n "\`\`\`\n        " > $MEMSEG_RESULT

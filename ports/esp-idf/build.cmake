@@ -34,17 +34,44 @@ set(build_component_paths_json "[]")
 configure_file("${IDF_PATH}/tools/cmake/project_description.json.in"
 	"${CMAKE_CURRENT_BINARY_DIR}/project_description.json")
 
+AUX_SOURCE_DIRECTORY(${CMAKE_CURRENT_LIST_DIR} PORT_SRCS)
+
+target_include_directories(libmcu PUBLIC
+	${CMAKE_SOURCE_DIR}/external/libmcu/modules/common/include/libmcu/posix)
+target_compile_definitions(libmcu PRIVATE timer_start=libmcu_timer_start)
+
+set(LIBMCU_ROOT ${PROJECT_SOURCE_DIR}/external/libmcu)
+if ($ENV{IDF_VERSION} VERSION_LESS "5.1.0")
+	list(APPEND PORT_SRCS ${LIBMCU_ROOT}/ports/freertos/semaphore.c)
+endif()
+
 add_executable(${PROJECT_EXECUTABLE}
-	${CMAKE_SOURCE_DIR}/src/main.c
+	${APP_SRCS}
+	${PORT_SRCS}
+
+	${LIBMCU_ROOT}/ports/esp-idf/board.c
+	${LIBMCU_ROOT}/ports/esp-idf/actor.c
+	${LIBMCU_ROOT}/ports/esp-idf/pthread.c
+	${LIBMCU_ROOT}/ports/esp-idf/wifi.c
+	${LIBMCU_ROOT}/ports/esp-idf/metrics.c
+	${LIBMCU_ROOT}/ports/esp-idf/nvs_kvstore.c
+	${LIBMCU_ROOT}/ports/freertos/timext.c
+	${LIBMCU_ROOT}/ports/freertos/hooks.c
+	${LIBMCU_ROOT}/ports/posix/logging.c
+	${LIBMCU_ROOT}/ports/posix/button.c
 )
 
 target_compile_definitions(${PROJECT_EXECUTABLE}
 	PRIVATE
+		${APP_DEFS}
+
 		ESP_PLATFORM=1
 		xPortIsInsideInterrupt=xPortInIsrContext
 )
 target_include_directories(${PROJECT_EXECUTABLE}
 	PRIVATE
+		${APP_INCS}
+
 		$ENV{IDF_PATH}/components/freertos/FreeRTOS-Kernel/include/freertos
 		$ENV{IDF_PATH}/components/freertos/include/freertos
 		${CMAKE_CURRENT_LIST_DIR}
@@ -60,6 +87,10 @@ target_link_libraries(${PROJECT_EXECUTABLE}
 	idf::esp_http_client
 	idf::esp_https_ota
 	idf::app_update
+	idf::esp_timer
+	idf::esp_wifi
+
+	libmcu
 
 	-Wl,--cref
 	-Wl,--Map=\"${mapfile}\"

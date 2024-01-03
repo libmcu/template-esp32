@@ -1,49 +1,51 @@
 /*
- * SPDX-FileCopyrightText: 2010-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2023 Kyunghwan Kwon <k@mononn.com>
  *
- * SPDX-License-Identifier: CC0-1.0
+ * SPDX-License-Identifier: MIT
  */
 
 #include <stdio.h>
-#include <inttypes.h>
-#include "sdkconfig.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_chip_info.h"
-#include "esp_flash.h"
 
-void app_main(void)
+#include "libmcu/board.h"
+#include "libmcu/logging.h"
+
+static size_t logging_stdout_writer(const void *data, size_t size)
 {
-    printf("Hello world!\n");
+	unused(size);
+	static char buf[LOGGING_MESSAGE_MAXLEN];
+	size_t len = logging_stringify(buf, sizeof(buf)-1, data);
 
-    /* Print chip information */
-    esp_chip_info_t chip_info;
-    uint32_t flash_size;
-    esp_chip_info(&chip_info);
-    printf("This is %s chip with %d CPU core(s), WiFi%s%s, ",
-           CONFIG_IDF_TARGET,
-           chip_info.cores,
-           (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-           (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+	buf[len++] = '\n';
+	buf[len] = '\0';
 
-    unsigned major_rev = chip_info.revision / 100;
-    unsigned minor_rev = chip_info.revision % 100;
-    printf("silicon revision v%d.%d, ", major_rev, minor_rev);
-    if(esp_flash_get_size(NULL, &flash_size) != ESP_OK) {
-        printf("Get flash size failed");
-        return;
-    }
+	const size_t rc = fwrite(buf, len, 1, stdout);
 
-    printf("%" PRIu32 "MB %s flash\n", flash_size / (uint32_t)(1024 * 1024),
-           (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+	return rc == 0? len : 0;
+}
 
-    printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
+static void logging_stdout_backend_init(void)
+{
+	static struct logging_backend log_console = {
+		.write = logging_stdout_writer,
+	};
 
-    for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-    printf("Restarting now.\n");
-    fflush(stdout);
-    esp_restart();
+	logging_add_backend(&log_console);
+}
+
+int main(void)
+{
+	board_init(); /* should be called very first. */
+	logging_init(board_get_time_since_boot_ms);
+
+	logging_stdout_backend_init();
+
+	const board_reboot_reason_t reboot_reason = board_get_reboot_reason();
+
+	info("[%s] %s %s", board_get_reboot_reason_string(reboot_reason),
+			board_get_serial_number_string(),
+			board_get_version_string());
+
+	while (1) {
+		/* hang */
+	}
 }
