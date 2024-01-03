@@ -20,9 +20,9 @@ include version.mk
 
 all: build size
 
+.PHONY: build
 build:
-	cmake -GNinja -B build
-	cmake --build build
+	idf.py build
 
 .PHONY: confirm
 confirm:
@@ -55,13 +55,15 @@ clean: confirm
 size:
 	$(Q)xtensa-esp32s3-elf-size $(BUILDIR)/$(PROJECT).elf
 
+PORT ?= /dev/tty.usbmodem1101
 .PHONY: flash
-flash: $(BUILDIR)/esp32s3.bin
+flash: $(BUILDIR)/$(PROJECT).bin
 	$(Q)python $(IDF_PATH)/components/esptool_py/esptool/esptool.py \
 		--chip esp32s3 -p $(PORT) -b 921600 \
 		--before=default_reset --after=no_reset --no-stub \
 		write_flash \
 		--flash_mode dio --flash_freq 80m --flash_size keep \
+		0x0 $(BUILDIR)/bootloader/bootloader.bin \
 		0x20000 $< \
 		0xe000 $(BUILDIR)/partition_table/partition-table.bin \
 		0x1d000 $(BUILDIR)/ota_data_initial.bin \

@@ -1,0 +1,24 @@
+set(fpl-src-dirs src)
+foreach(dir ${fpl-src-dirs})
+	file(GLOB_RECURSE fpl_${dir}_SRCS RELATIVE ${CMAKE_SOURCE_DIR} ${dir}/*.c)
+	file(GLOB_RECURSE fpl_${dir}_CPP_SRCS RELATIVE ${CMAKE_SOURCE_DIR} ${dir}/*.cpp)
+	list(APPEND FPL_SRCS ${fpl_${dir}_SRCS} ${fpl_${dir}_CPP_SRCS})
+endforeach()
+
+set(APP_SRCS
+	${CMAKE_SOURCE_DIR}/src/main.c
+)
+set(APP_INCS
+	${CMAKE_SOURCE_DIR}/include
+)
+set(APP_DEFS
+	BUILD_DATE=${BUILD_DATE}
+	VERSION_MAJOR=${VERSION_MAJOR}
+	VERSION_MINOR=${VERSION_MINOR}
+	VERSION_PATCH=${VERSION_PATCH}
+	VERSION_TAG=${VERSION_TAG}
+	VERSION=${VERSION}
+
+	_POSIX_THREADS
+	_POSIX_C_SOURCE=200809L
+)

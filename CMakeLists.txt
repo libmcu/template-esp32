@@ -13,5 +13,10 @@ set(CMAKE_TOOLCHAIN_FILE $ENV{IDF_PATH}/tools/cmake/toolchain-${IDF_TARGET}.cmak
 
 project(template)
 
+include(${CMAKE_SOURCE_DIR}/projects/version.cmake)
+include(${CMAKE_SOURCE_DIR}/projects/sources.cmake)
+include(${CMAKE_SOURCE_DIR}/projects/external.cmake)
+
 include($ENV{IDF_PATH}/tools/cmake/idf.cmake)
-include(${CMAKE_SOURCE_DIR}/ports/esp_idf/build.cmake)
+
+include(${CMAKE_SOURCE_DIR}/ports/esp-idf/build.cmake)

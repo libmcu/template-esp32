@@ -1,0 +1,3 @@
+[submodule "external/libmcu"]
+	path = external/libmcu
+	url = https://github.com/libmcu/libmcu.git
