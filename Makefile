@@ -18,6 +18,12 @@ export Q
 
 include version.mk
 
+all: build size
+
+build:
+	cmake -GNinja -B build
+	cmake --build build
+
 .PHONY: confirm
 confirm:
 	@echo 'Are you sure? [y/N] ' && read ans && [ $${ans:-N} = y ]
