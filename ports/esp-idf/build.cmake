@@ -61,12 +61,14 @@ add_executable(${PROJECT_EXECUTABLE}
 	${LIBMCU_ROOT}/ports/posix/button.c
 )
 
+idf_build_set_property(COMPILE_DEFINITIONS -DtraceTASK_SWITCHED_IN=on_task_switch_in APPEND)
+idf_build_set_property(COMPILE_DEFINITIONS -DxPortIsInsideInterrupt=xPortInIsrContext APPEND)
+idf_build_set_property(C_COMPILE_OPTIONS "-Wno-implicit-function-declaration" APPEND)
+
 target_compile_definitions(${PROJECT_EXECUTABLE}
 	PRIVATE
 		${APP_DEFS}
-
-		ESP_PLATFORM=1
-		xPortIsInsideInterrupt=xPortInIsrContext
+		ESP_PLATFORM
 )
 target_include_directories(${PROJECT_EXECUTABLE}
 	PRIVATE
