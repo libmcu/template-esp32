@@ -65,7 +65,11 @@ idf_build_set_property(COMPILE_DEFINITIONS -DtraceTASK_SWITCHED_IN=on_task_switc
 idf_build_set_property(COMPILE_DEFINITIONS -DxPortIsInsideInterrupt=xPortInIsrContext APPEND)
 idf_build_set_property(C_COMPILE_OPTIONS "-Wno-implicit-function-declaration" APPEND)
 
-target_compile_definitions(${PROJECT_EXECUTABLE} PUBLIC ${APP_DEFS})
+target_compile_definitions(${PROJECT_EXECUTABLE}
+	PRIVATE
+		${APP_DEFS}
+		ESP_PLATFORM
+)
 target_include_directories(${PROJECT_EXECUTABLE}
 	PRIVATE
 		${APP_INCS}
