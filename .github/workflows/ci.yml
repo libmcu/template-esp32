@@ -28,9 +28,6 @@ jobs:
           echo "MEMSEG_RESULT=$(echo .github/memsize.txt)" >> $GITHUB_ENV
           echo "MEMSEG_BASE=$(echo .github/memsize.baseline)" >> $GITHUB_ENV
           echo "MEMSEG_BASE_TMP=$(echo .github/memsize_tmp.baseline)" >> $GITHUB_ENV
-      - name: UnitTest
-        run: |
-          echo "Hello" || true
       - name: Build
         run: |
           . $IDF_PATH/export.sh
