@@ -19,7 +19,7 @@ jobs:
           submodules: recursive
       - name: Prepare
         run: |
-          apt-get update && apt-get -y install cppcheck
+          apt-get update && apt-get -y install cppcheck python3-dev
           git config --system --add safe.directory '*'
           git fetch
           echo "CODECHECKER_RESULT=$(echo .github/codechecker_result.txt)" >> $GITHUB_ENV
