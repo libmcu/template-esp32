@@ -8,10 +8,10 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build-on-esp-idf-v5_0_2:
-    name: Build on ESP-IDF v5.0.2
+  build-on-esp-idf-v5_2:
+    name: Build on ESP-IDF v5.2
     runs-on: ubuntu-latest
-    container: espressif/idf:v5.0.2
+    container: espressif/idf:v5.2
     steps:
       - name: Clone
         uses: actions/checkout@v3

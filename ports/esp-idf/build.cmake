@@ -33,6 +33,7 @@ set(build_components_json "[]")
 set(build_component_paths_json "[]")
 set(common_component_reqs_json "\"\"")
 set(build_component_info_json "\"\"")
+set(all_component_info_json "\"\"")
 configure_file("${IDF_PATH}/tools/cmake/project_description.json.in"
 	"${CMAKE_CURRENT_BINARY_DIR}/project_description.json")
 
