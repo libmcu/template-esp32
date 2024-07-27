@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "libmcu/board.h"
-
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -20,15 +19,15 @@ static struct cpuload {
 
 void on_task_switch_in(void)
 {
-	static uint32_t t0;
-	static uint32_t sum_elapsed;
+	static uint64_t t0;
+	static uint64_t sum_elapsed;
 
-	uint32_t t1 = board_get_time_since_boot_ms();
+	uint64_t t1 = esp_timer_get_time(); /* in microseconds */
 	uint32_t elapsed = t1 - t0;
 
 	/* NOTE: count at least 1 even if the task has run for much shorter time
-	 * as millisecond unit timer used here. For fine granularity, introduce
-	 * high-resolution timer. */
+	 * as microsecond unit timer used here. For fine granularity, introduce
+	 * more high-resolution timer. */
 	if (elapsed == 0) {
 		elapsed = 1;
 	}
