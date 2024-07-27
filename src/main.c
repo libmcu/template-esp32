@@ -9,14 +9,12 @@
 #include "libmcu/gpio.h"
 
 #include "pinmap.h"
-#include "logging.h"
+#include "logger.h"
 
 int main(void)
 {
 	board_init(); /* should be called very first. */
-
-	logging_init(board_get_time_since_boot_ms);
-	logging_stdout_backend_init();
+	logger_init();
 
 	const board_reboot_reason_t reboot_reason = board_get_reboot_reason();
 	info("[%s] %s %s", board_get_reboot_reason_string(reboot_reason),
